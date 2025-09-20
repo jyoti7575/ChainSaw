@@ -1,0 +1,1 @@
+function readArrayInefficient(uint256[] memory arr) public pure {}

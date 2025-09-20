@@ -1,0 +1,1 @@
+function readArrayEfficient(uint256[] calldata arr) public pure {}

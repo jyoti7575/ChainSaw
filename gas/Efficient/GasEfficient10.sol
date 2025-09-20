@@ -1,0 +1,1 @@
+uint256 public constant FEE = 10;

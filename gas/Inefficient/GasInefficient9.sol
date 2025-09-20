@@ -1,0 +1,1 @@
+require(block.timestamp > lastTransfer + cooldownPeriod && msg.sender == owner);

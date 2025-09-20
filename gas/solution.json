@@ -1,0 +1,77 @@
+{
+    "Repeated Storage Reads in Loops": {
+        "description": "Caching a storage array's length in a memory variable before a loop is more gas-efficient than repeatedly reading from storage in each iteration.",
+        "inefficient_code": "function sumLoopInefficient() public view returns (uint256) {\n    uint256 total = 0;\n    for (uint i = 0; i < myArray.length; i++) {\n        total += myArray[i];\n    }\n    return total;\n}",
+        "efficient_code": "function sumLoopEfficient() public view returns (uint256) {\n    uint256 total = 0;\n    uint256 len = myArray.length;\n    for (uint i = 0; i < len; i++) {\n        total += myArray[i];\n    }\n    return total;\n}"
+    },
+    "Unnecessary State Variable Initialization": {
+        "description": "Solidity automatically initializes variables to their default zero values. Explicitly setting them to zero wastes gas on deployment.",
+        "inefficient_code": "uint256 public counter = 0;\nbool public active = false;",
+        "efficient_code": "uint256 public counter;\nbool public active;"
+    },
+    "State Variable Updates in a Loop": {
+        "description": "Updating a storage variable in each loop iteration is expensive. It is more efficient to use a temporary memory variable and write to storage only once.",
+        "inefficient_code": "function loopUpdatesInefficient() public {\n    for (uint i = 0; i < 10; i++) {\n        total++;\n    }\n}",
+        "efficient_code": "function loopUpdatesEfficient() public {\n    uint256 temp = total;\n    for (uint i = 0; i < 10; i++) {\n        temp++;\n    }\n    total = temp;\n}"
+    },
+    "calldata vs. memory": {
+        "description": "For read-only function parameters like arrays and strings, 'calldata' is a cheaper, read-only data location compared to 'memory'.",
+        "inefficient_code": "function readArrayInefficient(uint256[] memory arr) public pure {}",
+        "efficient_code": "function readArrayEfficient(uint256[] calldata arr) public pure {}"
+    },
+    "public vs. external": {
+        "description": "Using 'external' for functions that are not called internally can save gas. 'public' functions have extra overhead.",
+        "inefficient_code": "function transferTokens(address to, uint256 amount) public {}",
+        "efficient_code": "function transferTokens(address to, uint256 amount) external {}"
+    },
+    "Mapping over Arrays for Lookups": {
+        "description": "Iterating through an array is expensive. Using a mapping for lookups is a single, gas-efficient operation.",
+        "inefficient_code": "function checkAdminInefficient(address _addr) public view returns(bool) {\n    for (uint i = 0; i < admins.length; i++) {\n        if (admins[i] == _addr) return true;\n    }\n    return false;\n}",
+        "efficient_code": "mapping(address => bool) private isAdmin;\nfunction checkAdminEfficient(address _addr) public view returns(bool) {\n    return isAdmin[_addr];\n}"
+    },
+    "Fixed-Size vs. Dynamic Arrays": {
+        "description": "When the size of an array is known, using a fixed-size array is more gas-efficient than a dynamic one.",
+        "inefficient_code": "uint256[] private values;\nfunction addValue(uint256 _value) public {\n    values.push(_value);\n}",
+        "efficient_code": "uint256[10] private values;\nfunction addValue(uint256 _value, uint _index) public {\n    values[_index] = _value;\n}"
+    },
+    "bytes vs. bytes32": {
+        "description": "For byte arrays up to 32 bytes, 'bytes32' is a more efficient data type than the dynamic 'string'.",
+        "inefficient_code": "string private name;\nfunction setName(string memory _name) public {\n    name = _name;\n}",
+        "efficient_code": "bytes32 private name;\nfunction setName(bytes32 _name) public {\n    name = _name;\n}"
+    },
+    "Short-Circuiting Logic": {
+        "description": "Place a cheaper condition check before a more expensive one to save gas by potentially short-circuiting the logic.",
+        "inefficient_code": "require(block.timestamp > lastTransfer + cooldownPeriod && msg.sender == owner);",
+        "efficient_code": "require(msg.sender == owner && block.timestamp > lastTransfer + cooldownPeriod);"
+    },
+    "constant and immutable": {
+        "description": "Using 'constant' and 'immutable' for values that don't change eliminates storage costs.",
+        "inefficient_code": "uint256 public fee = 10;",
+        "efficient_code": "uint256 public constant FEE = 10;"
+    },
+    "Integer Packing in structs": {
+        "description": "Solidity packs variables into 256-bit slots. Grouping smaller data types in a struct can reduce the number of storage slots needed.",
+        "inefficient_code": "struct S {\n    uint256 a;\n    uint8 b;\n    uint256 c;\n}",
+        "efficient_code": "struct S {\n    uint256 a;\n    uint256 c;\n    uint8 b;\n}"
+    },
+    "Using unchecked Blocks": {
+        "description": "In Solidity 0.8+, arithmetic operations are checked for overflow. Using 'unchecked' disables this for a small gas saving when you are certain there will be no overflow.",
+        "inefficient_code": "function addInefficient(uint256 a, uint256 b) public pure returns (uint256) {\n    return a + b;\n}",
+        "efficient_code": "function addEfficient(uint256 a, uint256 b) public pure returns (uint256) {\n    unchecked {\n        return a + b;\n    }\n}"
+    },
+    "Pre- and Post-Fix Increment": {
+        "description": "Prefix increment (++i) is slightly more gas-efficient than postfix increment (i++).",
+        "inefficient_code": "for (uint i = 0; i < 10; i++) {}",
+        "efficient_code": "for (uint i = 0; i < 10; ++i) {}"
+    },
+    "Custom Errors over Revert Strings": {
+        "description": "Using a custom error is more gas-efficient than reverting with a long string message.",
+        "inefficient_code": "require(x > 0, 'Input must be positive');",
+        "efficient_code": "error InputMustBePositive();\nif (x == 0) revert InputMustBePositive();"
+    },
+    "View Functions over Public Getters": {
+        "description": "A public state variable generates a getter function that costs gas. A private state variable with a 'view' function is more efficient.",
+        "inefficient_code": "uint256 public myVar;",
+        "efficient_code": "uint256 myVar;\nfunction getMyVar() public view returns (uint256) {\n    return myVar;\n}"
+    }
+}
