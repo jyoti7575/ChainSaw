@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel: AI Smart Contract Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#1A202C',
+                        'secondary': '#2D3748',
+                        'accent': '#4FD1C5',
+                        'text-primary': '#E2E8F0',
+                        'text-secondary': '#A0AEC0'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body class="bg-primary text-text-primary font-sans">
+
+    <div class="container mx-auto p-8 max-w-7xl">
+        <h1 class="text-4xl sm:text-5xl font-extrabold text-center text-accent mb-2">Sentinel</h1>
+        <p class="text-center text-text-secondary mb-10 text-lg">AI-Powered Smart Contract Security & Optimization Tool</p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-secondary p-6 rounded-xl shadow-lg border border-gray-700">
+                <label for="solidity-code" class="block text-xl font-bold mb-4 text-accent">
+                    Paste your Solidity Code here:
+                </label>
+                <textarea id="solidity-code" rows="15" class="w-full bg-gray-700 text-text-primary p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm font-mono"></textarea>
+                <button id="scan-btn" class="w-full mt-6 bg-accent hover:bg-teal-600 text-primary font-bold py-3 px-4 rounded-lg transition duration-300">
+                    Run AI Scan
+                </button>
+            </div>
+
+            <div class="bg-secondary p-6 rounded-xl shadow-lg border border-gray-700">
+                <label class="block text-xl font-bold mb-4 text-accent">
+                    Analysis Report:
+                </label>
+                <div id="report-container" class="bg-gray-700 p-4 rounded-lg h-[600px] overflow-y-auto text-sm font-mono leading-relaxed">
+                    <p class="text-center text-text-secondary">Your report will appear here after the scan.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const scanBtn = document.getElementById('scan-btn');
+            const codeTextarea = document.getElementById('solidity-code');
+            const reportContainer = document.getElementById('report-container');
+
+            // --- THIS IS THE ONLY CHANGE ---
+            // The key is now injected by the Flask server, making a mismatch impossible.
+            const SECRET_KEY = {{ secret_key|tojson|safe }};
+
+            scanBtn.addEventListener('click', async () => {
+                const code = codeTextarea.value;
+                if (!code) {
+                    reportContainer.innerHTML = `<p class="text-red-500">Please paste some Solidity code to scan.</p>`;
+                    return;
+                }
+                
+                // Parse the key for CryptoJS
+                const parsedKey = CryptoJS.enc.Utf8.parse(SECRET_KEY);
+                
+                // Encrypt using AES, ECB mode, and PKCS7 padding to match the Python backend
+                const encrypted = CryptoJS.AES.encrypt(code, parsedKey, {
+                    mode: CryptoJS.mode.ECB,
+                    padding: CryptoJS.pad.Pkcs7
+                });
+
+                // The encrypted data needs to be sent as a Base64 string
+                const encryptedCode = encrypted.toString();
+
+                scanBtn.textContent = "Scanning...";
+                scanBtn.disabled = true;
+                reportContainer.innerHTML = `<p class="text-center text-text-secondary animate-pulse">Scanning in progress...</p>`;
+
+                try {
+                    const response = await fetch('/scan', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: encryptedCode })
+                    });
+
+                    const report = await response.json();
+                    
+                    if (response.ok) {
+                        let reportHTML = `<div class="mb-6">
+                                            <h2 class="text-xl font-bold text-accent mb-2">Security Analysis:</h2>
+                                            <p class="text-lg">Status: <span class="font-semibold text-${report.security.status === 'Secure' ? 'green-400' : 'red-400'}">${report.security.status}</span></p>
+                                          </div>`;
+
+                        if (report.security.vulnerabilities.length > 0) {
+                            report.security.vulnerabilities.forEach(vuln => {
+                                reportHTML += `<div class="bg-gray-800 p-4 rounded-lg my-4 border border-red-500">
+                                                    <h3 class="font-bold text-lg text-red-400">${vuln.type} Detected!</h3>
+                                                    <p class="text-text-secondary my-2">${vuln.description}</p>
+                                                    <h4 class="font-bold text-red-300 mt-3">Vulnerable Code:</h4>
+                                                    <pre class="bg-gray-900 p-2 rounded-md text-red-200 whitespace-pre-wrap">${vuln.vulnerable_code}</pre>
+                                                    <h4 class="font-bold text-green-300 mt-3">Suggested Fix:</h4>
+                                                    <pre class="bg-gray-900 p-2 rounded-md text-green-200 whitespace-pre-wrap">${vuln.fixed_code}</pre>
+                                                  </div>`;
+                            });
+                        } else {
+                            reportHTML += `<p class="text-green-400 my-2">No security vulnerabilities found.</p>`;
+                        }
+
+                        reportHTML += `<div class="mt-8 mb-6">
+                                         <h2 class="text-xl font-bold text-accent mb-2">Gas Optimization:</h2>
+                                         <p class="text-lg">Status: <span class="font-semibold text-${report.gas_optimization.status === 'Efficient' ? 'green-400' : 'yellow-400'}">${report.gas_optimization.status}</span></p>
+                                       </div>`;
+                        
+                        if (report.gas_optimization.suggestions.length > 0) {
+                            report.gas_optimization.suggestions.forEach(gas => {
+                                reportHTML += `<div class="bg-gray-800 p-4 rounded-lg my-4 border border-yellow-500">
+                                                    <h3 class="font-bold text-lg text-yellow-400">Inefficient Pattern Detected!</h3>
+                                                    <p class="text-text-secondary my-2">${gas.description}</p>
+                                                    <h4 class="font-bold text-yellow-300 mt-3">Inefficient Code:</h4>
+                                                    <pre class="bg-gray-900 p-2 rounded-md text-yellow-200 whitespace-pre-wrap">${gas.inefficient_code}</pre>
+                                                    <h4 class="font-bold text-green-300 mt-3">Optimized Code:</h4>
+                                                    <pre class="bg-gray-900 p-2 rounded-md text-green-200 whitespace-pre-wrap">${gas.efficient_code}</pre>
+                                                  </div>`;
+                            });
+                        } else {
+                            reportHTML += `<p class="text-green-400 my-2">No gas optimization suggestions found.</p>`;
+                        }
+
+                        reportContainer.innerHTML = reportHTML;
+                    } else {
+                        reportContainer.innerHTML = `<p class="text-red-500">Error: ${report.error || 'An unknown error occurred.'}</p>`;
+                    }
+
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                    reportContainer.innerHTML = `<p class="text-red-500">Error: Could not connect to the server.</p>`;
+                } finally {
+                    scanBtn.textContent = "Run AI Scan";
+                    scanBtn.disabled = false;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
